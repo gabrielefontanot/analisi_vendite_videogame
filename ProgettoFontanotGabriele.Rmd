@@ -1,0 +1,347 @@
+---
+title: '*Analisi sulle vendite di videogiochi*'
+author: "Gabriele Fontanot"
+date: "2023-07-14"
+output:
+  ioslides_presentation:
+    css: /Users/gabri/Desktop/ProgettoFSDD/style.css
+    incremental: yes
+  slidy_presentation:
+    incremental: yes
+editor_options:
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache = TRUE, message = FALSE, warning = FALSE)
+```
+
+```{r include=FALSE}
+
+#carico le librerie necessarie
+
+library(ggplot2)
+library(knitr)
+library(dplyr)
+library(tidyr)
+library(viridis) #colori
+library(plotly) #grafici interattivi
+
+# carico il dataset
+dataset <- read.csv("C:/Users/gabri/Desktop/ProgettoFSDD/vgsales.csv")
+
+head(dataset)
+
+#pulizia dati
+
+# Verifico e pulisco i dati. Da una prima visione del dataset ho potuto verificare che nella colonna year ci sono numerosi campi nulli, questi mi causerebbero problemi nella mia analisi; per evitarlo prima li cerco, poi li tolgo.
+
+# Ordino i giochi per anno in ordine inverso
+dataset_sorted <- dataset %>% arrange(desc(Year))
+
+# Visualizzo i giochi ordinati per anno in ordine inverso
+head(dataset_sorted, n = 100)
+
+# Controllo i valori non finiti nella colonna "Year"
+non_finite_years <- dataset[!is.finite(dataset$Year), "Year"]
+
+# Visualizzo i valori non finiti
+print(non_finite_years)
+
+# Rimuovo le righe con valori NA dalla colonna "Year"
+dataset_dati <- dataset[!is.na(dataset$Year), ]
+
+# Elimino i pochi record con l'anno superiore al 2015, per scelta spiegata nella presentazione
+
+# Rimuovo i valori con anno superiore al 2016
+dataset_dati <- dataset %>% filter(Year <= 2015)
+
+# Ordino il dataset filtrato per numero di anni in ordine inverso e lo visualizzo
+dataset_ordered <- dataset_dati %>% arrange(desc(Year))
+head(dataset_ordered)
+
+```
+
+## Introduzione
+
+<font size="5">
+I **videogame** sono entrati nelle nostre vite da ormai più di 40 anni, diventando parte integrante della vita di adulti, ragazzi e bambini. 
+Negli ultimi anni, la crescita esponenziale di persone che si sono avvicinate a questo mondo ha consentito una forte **espansione** del settore, arrivando al culmine nell'ultimo ventennio.</font>
+
+<div style="text-align:center">
+  <img src="C:/Users/gabri/Desktop/ProgettoFSDD/fotointro.jpg" style="width:400px;"/>
+</div>
+
+## Dataset
+
+<font size="5">
+Il **dataset** che ho scelto comprendeva i dati delle vendite di circa 16000 titoli di videogiochi dal 1980 al 2017.
+
+Le copie vendute avevano corrispondenza solamente con l'anno di pubblicazione del titolo, non effetivamente con quando sono state acquistate, ovvero, per ogni titolo, si poteva sapere solamente quante copie avesse venduto, ma non la distribuzione di queste vendite negli anni. 
+<p>Per questo ho voluto analizzare i videogiochi pubblicati fino al 2015, per essere sicuro della veridicità e attendibilità dei dati, visto che con i giochi più nuovi ci sarebbe stata la possibilità che fossero ancora in commercio al momento dell'aggiornamento del dataset, rendendo **inaccurata** e **incompleta** l'analisi. </p>
+</font>
+
+## Indagine
+
+<font size="4"><p>
+La mia analisi verte su dei determinati quesiti che mi sono posto sull'argomento:
+
+<p>- In quale periodo sono stati **pubblicati** più videogiochi?
+
+- C'è una **relazione** tra le **vendite** e il numero di **giochi pubblicati** in un determinato anno?
+
+- Quali sono i **generi**, le **console** e i **produttori** che hanno maggiormente inciso nel mercato?
+
+</p>
+<p>
+- Grazie al dataset "Global Video Game Sales" andremo ad approfondire questi aspetti, analizzando le vendite di tutti quei titoli che hanno appassionato milioni di persone.</p></font>
+
+
+<div style="text-align:center">
+  <img src="C:/Users/gabri/Desktop/ProgettoFSDD/wars.jpg" style="width:320px;"/>
+</div>
+
+
+## Videogiochi pubblicati per anno
+
+<font size="3">
+Come primo passo andiamo a vedere come si suddividono le pubblicazioni di videogiochi durante l'arco temporale preso in analisi. 
+Osserviamo di come il picco si sia verificato poco prima del 2010, e di come dopo questo periodo di "boom" ci sia stato un sostanziale calo.
+</font>
+
+```{r echo=FALSE}
+
+# Conto il numero di giochi per anno
+games_per_year <- dataset_dati %>%
+  group_by(Year) %>%
+  summarise(Num_Games = n())
+
+# Creo il grafico a barre del numero di videogiochi per anno
+games_per_year %>%
+ggplot(aes(x = Year, y = Num_Games)) +
+  geom_bar(stat = "identity", width = 0.7, fill = "darkblue") +
+  labs(x = "Anno", y = "Numero di videogiochi pubblicati") +
+  theme_classic() +
+  theme(
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        axis.title = element_text(size = 12),
+        axis.text = element_text(size = 8),
+        legend.position = "none",
+        panel.grid.major = element_line(color = "lightgray", linetype = "dashed")
+      ) +
+    scale_x_discrete(breaks = unique(dataset_dati$Year)) +
+    scale_y_continuous(limits = c(0, 1500), breaks = seq(0, 1500, by = 100))
+ 
+```
+
+
+## Quali sono stati gli anni più redditizi?
+
+<font size="4"> Adesso proviamo a mettere in relazione le copie vendute per tutti quei videogiochi usciti in un determinato anno e il numero di giochi pubblicati sempre in quell'anno.</font>
+
+```{r echo=FALSE}
+
+# Conto il numero di giochi per anno
+games_per_year <- dataset_dati %>%
+  group_by(Year) %>%
+  summarise(Num_Games = n())
+
+# Calcolo il totale delle vendite per anno
+sales_per_year <- dataset_dati %>%
+  group_by(Year) %>%
+  summarise(Total_Sales = sum(Global_Sales))
+
+# Unisco i dati dei giochi per anno e delle vendite per anno
+games_sales_per_year <- inner_join(games_per_year, sales_per_year, by = "Year")
+
+# Creo il grafico a punti interattivo delle vendite in relazione al numero di giochi usciti per anno
+plot <- games_sales_per_year %>%
+  plot_ly(x = ~Num_Games, y = ~Total_Sales, text = ~Year, type = "scatter", mode = "markers", marker = list(color = "#1f77b4", size = 10)) %>%
+  layout(xaxis = list(title = "Numero di videogiochi usciti"), yaxis = list(title = "Vendite totali in milioni di copie"))
+
+# Aggiungo etichette accanto ai punti
+plot <- plot %>% add_text(x = ~Num_Games, y = ~Total_Sales, text = ~Year, showlegend = FALSE, textposition = "bottom")
+
+plot
+
+```
+
+## Trend 
+
+<font size="4"> Grazie anche all'uso del modello della regressione, possiamo vedere il trend di questa relazione, ovvero che più videogiochi sono stati pubblicati, più vendite ci sono state per i titoli pubblicati in quel determinato anno, come era possibile immaginarsi. </font>
+
+```{r echo=FALSE}
+# Eseguo la regressione lineare
+regression_model <- lm(Total_Sales ~ Num_Games, data = games_sales_per_year)
+
+# Creo il grafico con la regressione
+games_sales_per_year %>%
+ggplot(aes(x = Num_Games, y = Total_Sales)) +
+  geom_point(color = "#1f77b4", size = 2) +
+  geom_smooth(method = "lm", se = FALSE, color = "red", linetype = "dashed") +
+  labs(x = "Numero di videogiochi usciti", y = "Vendite totali in milioni di copie") +
+  scale_x_continuous(breaks = seq(0, 1500, by = 100), limits = c(0, 1500)) +
+  scale_y_continuous(breaks = seq(0, 700, by = 50), limits = c(0, 700)) +
+  theme_minimal()+
+  theme(
+        axis.title = element_text(size = 12),
+        axis.text = element_text(size = 10),
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        panel.grid.major = element_line(color = "lightgray", linetype = "dashed"),
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill = "white"),
+        legend.position = "none"
+    )
+  
+```
+
+
+## Categorie con maggior successo
+
+<font size="4"><p>
+Adesso andremo a vedere altri 3 aspetti molto importanti:
+
+- i **generi** di videogiochi che sono stati più venduti durante gli anni presi in esame;
+
+- i **produttori** di videogiochi che hanno maggiormante inciso nel mercato;
+
+- le **console** con più singole copie vendute.
+</p>
+</font>
+
+<div style="text-align:center">
+  <img src="C:/Users/gabri/Desktop/ProgettoFSDD/fotoconsole.jpg" style="width:550px;"/>
+</div>
+
+## Generi di videogiochi più venduti
+
+<font size="3"> Possiamo facilmente vedere di come i videogiochi d'azione siano i più popolari, seguiti a ruota da quelli sportivi e i famosi sparatutto.</font>
+
+```{r echo=FALSE}
+
+
+# Raggruppo e sommo le vendite per genere
+sales_by_genre <- dataset %>%
+  group_by(Genre) %>%
+  summarise(Global_Sales = sum(Global_Sales))
+
+colors <- viridis(nrow(sales_by_genre))
+
+# Creo il grafico a barre
+sales_by_genre %>%
+  ggplot(aes(x = Global_Sales, y = reorder(Genre, Global_Sales))) +
+  geom_bar(stat = "identity", fill = colors, width = 0.6) +
+  labs(x = "Vendite globali in milioni di copie", y = "Tipo di videogioco") +
+  theme_minimal() +
+  theme(
+        axis.text.y = element_text(size = 10, hjust = 0.5),
+        axis.title = element_text(size = 12)
+  )
+
+
+```
+
+
+## Distribuzione sul mercato produttori
+
+<font size="3"> Mettiamo ora in relazione il numero di videogiochi pubblicati e il numero di videogiochi venduti per ciascun produttore (per comodità grafica abbiamo preso la top 10).
+La Nintendo comanda il mercato come numero di vendite, mentre l'Electronics Arts come numero di titoli pubblicati.</font>
+
+```{r echo=FALSE}
+
+# Creo la top 10 dei produttori
+top_publishers <- dataset_dati %>%
+  group_by(Publisher) %>%
+  summarise(Num_Games = n(), Total_Sales = sum(Global_Sales)) %>%
+  arrange(desc(Total_Sales)) %>%
+  top_n(10)
+
+color_palette <- scales::hue_pal()(nrow(top_publishers))
+
+# Grafico a dispersione dei top10 produttori
+plot <- plot_ly(top_publishers, x = ~Num_Games, y = ~Total_Sales, text = ~Publisher, type = "scatter", mode = "markers",
+                marker = list(color = color_palette, size = 10, opacity = 0.8)) %>%
+  layout(xaxis = list(title = "Numero di videogiochi pubblicati"), yaxis = list(title = "Copie vendute (milioni)"), showlegend = FALSE)
+
+# Aggiungo etichette con il nome del produttore
+plot <- plot %>% add_text(x = ~Num_Games, y = ~Total_Sales, text = ~Publisher, textposition = "bottom", textfont = list(size = 12))
+
+plot
+
+```
+
+## Videogiochi più venduti 
+
+<font size="3">Riporto la top 10 dei videogiochi più venduti pubblicati nel periodo analizzato, dove effetivamente vediamo che la classifica è completamente di fattura Nintendo, con anche un'equa distribuzione temporale.</font>
+
+```{r, echo=FALSE}
+
+# Ordino il dataset in base alle vendite globali in ordine decrescente
+dataset_ordinato <- dataset_dati[order(-dataset_dati$Global_Sales), ]
+
+# Seleziono solo le colonne desiderate delle prime 10 righe
+top_10_giochi <- dataset_ordinato[1:10, c("Name", "Publisher", "Year", "Platform", "Global_Sales")]
+
+# Stampo la top 10
+top_10_giochi
+
+```
+
+## Console con più giochi venduti
+
+<font size="3">Spostando invece il discorso sulle console, vediamo di come le vendite di videogiochi per DS e PS2 siano state le maggiori, superando di molte centinaia di milioni di copie le inseguitrici.</font>
+
+```{r echo=FALSE}
+
+# Seleziono le prime 20 piattaforme con il numero più elevato di giochi venduti
+top_platforms <- dataset %>%
+  count(Platform) %>%
+  top_n(20, n)
+
+colors <- viridis(nrow(top_platforms))
+
+# Creo il grafico a barre delle console con più giochi venduti
+top_platforms %>%
+ggplot(aes(x = reorder(Platform, n), y = n)) +
+  geom_bar(stat = "identity", fill = colors , width = 0.7) +
+  labs(x = "Console", y = "Milioni di copie di videogiochi vendute") +
+  theme_classic() +
+  theme(
+      axis.text.x = element_text(angle = 45, hjust = 1),
+      axis.title = element_text(size = 12),
+      axis.text = element_text(size = 10),
+      legend.position = "none"
+     ) +
+     scale_y_continuous(breaks = seq(0, 2200, by = 100), limits = c(0, 2200)) 
+
+```
+
+## Conclusioni
+
+*Cosa abbiamo osservato?*
+
+<font size="4">
+<p>- c'è stato il momento di picco attorno al **2009** --> quando il numero di titoli pubblicati è stato il maggiore e le vendite sono state le più alte;
+- la Nintendo ha pressochè dominato il mercato nonostante non abbia il maggior numero di titoli pubblicati;
+- da dopo il **2010** --> calo di pubblicazioni e conseguenti vendite. </p>
+
+
+</font>
+*Possibili motivi:* 
+<font size="4">
+
+<p>- tempo di usabilità e la durata di utilizzo di un titolo sono diminuite fortemente a causa del veloce avanzamento tecnologico del settore. Ormai è molto difficile che un titolo rimanga sul mercato per più di 2/3 anni, poiché ne uscirà subito uno nuovo più all'avanguardia;
+- entrata in scena dei videogiochi "free to play";
+- inizio dell'utilizzo di smartphone come "console".
+</p>
+</font>
+ 
+---
+
+<div style="text-align:center">
+  <b><font size="10" color="black"> Grazie per l'attenzione </font></b>
+</div>
+
+<div style="text-align:center">
+  <img src="C:/Users/gabri/Desktop/ProgettoFSDD/overgame.jpg" style="width:750px;"/>
+</div>
